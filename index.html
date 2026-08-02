@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>声日記</title>
+<meta name="description" content="話すだけで日記をGitHubに保存するPWA" />
+<meta name="theme-color" content="#EDE6D6" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="paper-texture" aria-hidden="true"></div>
+
+<header class="app-header">
+  <h1 class="wordmark"><span class="wordmark-glyph">声</span>日記</h1>
+  <p class="today" id="today-label">-</p>
+  <button class="icon-btn" id="open-settings" aria-label="設定を開く" title="設定">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.8-1.4-1.5-2.6-2.1.6a7.6 7.6 0 0 0-2.6-1.5L14.6 3h-3l-.4 2.6a7.6 7.6 0 0 0-2.6 1.5l-2.1-.6-1.5 2.6L6.6 10.5a7.6 7.6 0 0 0 0 3L4.8 15.9l1.5 2.6 2.1-.6a7.6 7.6 0 0 0 2.6 1.5l.4 2.6h3l.4-2.6a7.6 7.6 0 0 0 2.6-1.5l2.1.6 1.5-2.6-1.8-1.4Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</header>
+
+<main class="sheet" id="main-view">
+  <div class="grid-field">
+    <textarea
+      id="transcript"
+      class="transcript"
+      placeholder="ここに録音した内容が文字になって表示されます。直接書いてもかまいません。"
+      aria-label="日記の本文"
+    ></textarea>
+  </div>
+
+  <p class="status-line" id="status-line" role="status" aria-live="polite">マイクのボタンを押して話しはじめてください</p>
+
+  <div class="ink-wave" id="ink-wave" aria-hidden="true">
+    <svg viewBox="0 0 300 60" preserveAspectRatio="none">
+      <path id="ink-wave-path" d="M0,30 L300,30" />
+    </svg>
+  </div>
+
+  <div class="controls">
+    <button class="record-btn" id="record-btn" aria-pressed="false">
+      <span class="record-btn-ring"></span>
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="mic-icon">
+        <path d="M12 15a3.2 3.2 0 0 0 3.2-3.2V6.2a3.2 3.2 0 0 0-6.4 0v5.6A3.2 3.2 0 0 0 12 15Z" fill="currentColor"/>
+        <path d="M6.5 11.2a5.5 5.5 0 0 0 11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M12 16.7V20M9 20h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <span class="record-label" id="record-label">録音</span>
+  </div>
+
+  <button class="save-btn" id="save-btn" disabled>
+    <span class="hanko" aria-hidden="true">記</span>
+    <span>GitHubに保存する</span>
+  </button>
+</main>
+
+<div class="stamp-overlay" id="stamp-overlay" aria-hidden="true">
+  <div class="stamp-mark">保存済</div>
+</div>
+
+<div class="modal-backdrop" id="settings-backdrop">
+  <section class="modal" id="settings-modal" aria-labelledby="settings-title">
+    <div class="modal-head">
+      <h2 id="settings-title">設定</h2>
+      <button class="icon-btn" id="close-settings" aria-label="閉じる">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <label class="field">
+      <span>Personal Access Token</span>
+      <input type="password" id="setting-token" autocomplete="off" placeholder="ghp_..." />
+      <small>この端末のブラウザ内だけに保存されます。他には送信されません。</small>
+    </label>
+
+    <label class="field">
+      <span>リポジトリ（owner/repo）</span>
+      <input type="text" id="setting-repo" autocomplete="off" placeholder="taka070600538-tech/voice-diary" />
+    </label>
+
+    <label class="field">
+      <span>ブランチ</span>
+      <input type="text" id="setting-branch" autocomplete="off" placeholder="main" />
+    </label>
+
+    <label class="field">
+      <span>保存フォルダ</span>
+      <input type="text" id="setting-folder" autocomplete="off" placeholder="diary" />
+    </label>
+
+    <button class="save-btn settings-save" id="save-settings">
+      <span>設定を保存</span>
+    </button>
+    <p class="settings-note">
+      トークンをお持ちでない場合は
+      <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">GitHubのトークン発行画面</a>
+      を開き、「repo」にチェックを入れて発行してください。
+    </p>
+  </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
