@@ -121,12 +121,33 @@ function stopWave() {
 const DEBUG = new URLSearchParams(location.search).has("debug");
 let debugPanel = null;
 if (DEBUG) {
+  const debugBox = document.createElement("div");
+  debugBox.style.cssText =
+    "position:fixed;left:0;right:0;bottom:0;max-height:45vh;display:flex;" +
+    "flex-direction:column;background:#000;z-index:99999;";
+
+  const debugCopyBtn = document.createElement("button");
+  debugCopyBtn.textContent = "ログをコピー";
+  debugCopyBtn.style.cssText =
+    "flex:none;margin:6px;padding:8px;font-size:14px;";
+  debugCopyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(debugPanel.textContent);
+      debugCopyBtn.textContent = "コピーしました！";
+    } catch (_) {
+      debugCopyBtn.textContent = "コピー失敗（手動で選択してください）";
+    }
+    setTimeout(() => { debugCopyBtn.textContent = "ログをコピー"; }, 2000);
+  });
+
   debugPanel = document.createElement("pre");
   debugPanel.style.cssText =
-    "position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;" +
-    "margin:0;padding:8px;font-size:11px;line-height:1.4;background:#000;" +
-    "color:#0f0;z-index:99999;white-space:pre-wrap;word-break:break-all;";
-  document.body.appendChild(debugPanel);
+    "margin:0;padding:8px;overflow:auto;font-size:11px;line-height:1.4;" +
+    "color:#0f0;white-space:pre-wrap;word-break:break-all;";
+
+  debugBox.appendChild(debugCopyBtn);
+  debugBox.appendChild(debugPanel);
+  document.body.appendChild(debugBox);
 }
 function debugLog(line) {
   if (!DEBUG) return;
