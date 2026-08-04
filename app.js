@@ -121,6 +121,11 @@ let isRecording = false;
 let userStopped = false;
 let baseText = "";
 let finalText = "";
+// Tracks how many of the CURRENT session's results we've already committed
+// to finalText. Some browsers (notably Android Chrome) redeliver the same
+// finalized result in a later onresult event while reporting a stale/zero
+// resultIndex, so resultIndex alone can't be trusted to avoid duplicates.
+let sessionFinalCount = 0;
 
 if (SpeechRecognitionCtor) {
   recognition = new SpeechRecognitionCtor();
@@ -133,7 +138,10 @@ if (SpeechRecognitionCtor) {
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const chunk = event.results[i][0].transcript;
       if (event.results[i].isFinal) {
-        finalText += chunk;
+        if (i >= sessionFinalCount) {
+          finalText += chunk;
+          sessionFinalCount = i + 1;
+        }
       } else {
         interim += chunk;
       }
@@ -155,7 +163,10 @@ if (SpeechRecognitionCtor) {
 
   recognition.onend = () => {
     if (isRecording && !userStopped) {
-      // mobile browsers often stop after a pause; keep listening
+      // mobile browsers often stop after a pause; keep listening.
+      // A restart begins a brand-new session whose results are indexed
+      // from 0 again, so the per-session dedupe counter must reset too.
+      sessionFinalCount = 0;
       try { recognition.start(); } catch (_) { /* already starting */ }
     } else {
       isRecording = false;
@@ -193,6 +204,7 @@ recordBtn.addEventListener("click", () => {
   if (!isRecording) {
     baseText = transcriptEl.value;
     finalText = "";
+    sessionFinalCount = 0;
     userStopped = false;
     isRecording = true;
     setRecordingUI(true);
