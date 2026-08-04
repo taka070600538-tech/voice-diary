@@ -114,48 +114,6 @@ function stopWave() {
   inkWavePath.setAttribute("d", "M0,30 L300,30");
 }
 
-/* ---------- temporary diagnostic logging (?debug=1) ---------- */
-// TEMPORARY: instrumentation to capture what onresult actually receives on
-// devices where duplicate transcripts still occur, so the real cause can be
-// identified instead of guessed at. Safe to remove once root-caused.
-const DEBUG = new URLSearchParams(location.search).has("debug");
-let debugPanel = null;
-if (DEBUG) {
-  const debugBox = document.createElement("div");
-  debugBox.style.cssText =
-    "position:fixed;left:0;right:0;bottom:0;max-height:45vh;display:flex;" +
-    "flex-direction:column;background:#000;z-index:99999;";
-
-  const debugCopyBtn = document.createElement("button");
-  debugCopyBtn.textContent = "ログをコピー";
-  debugCopyBtn.style.cssText =
-    "flex:none;margin:6px;padding:8px;font-size:14px;";
-  debugCopyBtn.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(debugPanel.textContent);
-      debugCopyBtn.textContent = "コピーしました！";
-    } catch (_) {
-      debugCopyBtn.textContent = "コピー失敗（手動で選択してください）";
-    }
-    setTimeout(() => { debugCopyBtn.textContent = "ログをコピー"; }, 2000);
-  });
-
-  debugPanel = document.createElement("pre");
-  debugPanel.style.cssText =
-    "margin:0;padding:8px;overflow:auto;font-size:11px;line-height:1.4;" +
-    "color:#0f0;white-space:pre-wrap;word-break:break-all;";
-
-  debugBox.appendChild(debugCopyBtn);
-  debugBox.appendChild(debugPanel);
-  document.body.appendChild(debugBox);
-}
-function debugLog(line) {
-  if (!DEBUG) return;
-  const t = new Date().toISOString().slice(11, 23);
-  debugPanel.textContent += `[${t}] ${line}\n`;
-  debugPanel.scrollTop = debugPanel.scrollHeight;
-}
-
 /* ---------- speech recognition ---------- */
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
@@ -180,13 +138,6 @@ if (SpeechRecognitionCtor) {
   recognition.interimResults = true;
 
   recognition.onresult = (event) => {
-    if (DEBUG) {
-      const dump = [];
-      for (let i = 0; i < event.results.length; i++) {
-        dump.push(`#${i}${event.results[i].isFinal ? "F" : "i"}:"${event.results[i][0].transcript}"`);
-      }
-      debugLog(`onresult resultIndex=${event.resultIndex} sessionFinalCount=${sessionFinalCount} [${dump.join(" | ")}]`);
-    }
     let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const chunk = event.results[i][0].transcript;
@@ -211,7 +162,6 @@ if (SpeechRecognitionCtor) {
   };
 
   recognition.onerror = (event) => {
-    debugLog(`onerror ${event.error}`);
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
       setStatus("マイクの使用が許可されていません。ブラウザの設定を確認してください。", "error");
       userStopped = true;
@@ -222,10 +172,7 @@ if (SpeechRecognitionCtor) {
     }
   };
 
-  recognition.onstart = () => debugLog("onstart");
-
   recognition.onend = () => {
-    debugLog(`onend isRecording=${isRecording} userStopped=${userStopped} finalText="${finalText}" currentSegment="${currentSegment}"`);
     if (isRecording && !userStopped) {
       // mobile browsers often stop after a pause; keep listening.
       // A restart begins a brand-new session whose results are indexed
