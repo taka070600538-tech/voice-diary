@@ -162,11 +162,15 @@ let recognition = null;
 let isRecording = false;
 let userStopped = false;
 let baseText = "";
+// finalText holds fully-committed segments; currentSegment holds the most
+// recent finalized chunk, which some engines (observed on Android) keep
+// re-emitting as isFinal:true while it's still growing or being restated
+// verbatim, rather than only marking the truly completed chunk once.
 let finalText = "";
-// Tracks how many of the CURRENT session's results we've already committed
-// to finalText. Some browsers (notably Android Chrome) redeliver the same
-// finalized result in a later onresult event while reporting a stale/zero
-// resultIndex, so resultIndex alone can't be trusted to avoid duplicates.
+let currentSegment = "";
+// Tracks how many of the CURRENT session's results we've already looked at.
+// Some browsers can redeliver a stale/zero resultIndex, so resultIndex alone
+// can't be trusted to avoid reprocessing the same entry.
 let sessionFinalCount = 0;
 
 if (SpeechRecognitionCtor) {
@@ -188,14 +192,21 @@ if (SpeechRecognitionCtor) {
       const chunk = event.results[i][0].transcript;
       if (event.results[i].isFinal) {
         if (i >= sessionFinalCount) {
-          finalText += chunk;
+          if (chunk.startsWith(currentSegment)) {
+            // growing restatement (or exact repeat) of the same chunk
+            currentSegment = chunk;
+          } else if (!currentSegment.startsWith(chunk)) {
+            // genuinely new content, not a shorter duplicate of what we have
+            finalText += currentSegment;
+            currentSegment = chunk;
+          }
           sessionFinalCount = i + 1;
         }
       } else {
         interim += chunk;
       }
     }
-    transcriptEl.value = joinText(baseText, finalText + interim);
+    transcriptEl.value = joinText(baseText, finalText + currentSegment + interim);
     updateSaveEnabled();
   };
 
@@ -214,7 +225,7 @@ if (SpeechRecognitionCtor) {
   recognition.onstart = () => debugLog("onstart");
 
   recognition.onend = () => {
-    debugLog(`onend isRecording=${isRecording} userStopped=${userStopped} finalText="${finalText}"`);
+    debugLog(`onend isRecording=${isRecording} userStopped=${userStopped} finalText="${finalText}" currentSegment="${currentSegment}"`);
     if (isRecording && !userStopped) {
       // mobile browsers often stop after a pause; keep listening.
       // A restart begins a brand-new session whose results are indexed
@@ -257,6 +268,7 @@ recordBtn.addEventListener("click", () => {
   if (!isRecording) {
     baseText = transcriptEl.value;
     finalText = "";
+    currentSegment = "";
     sessionFinalCount = 0;
     userStopped = false;
     isRecording = true;
@@ -378,6 +390,7 @@ saveBtn.addEventListener("click", async () => {
     transcriptEl.value = "";
     baseText = "";
     finalText = "";
+    currentSegment = "";
     updateSaveEnabled();
     showStamp();
     setStatus("保存しました", "success");
