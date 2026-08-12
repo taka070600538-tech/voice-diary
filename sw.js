@@ -1,9 +1,10 @@
-const CACHE_NAME = "voice-diary-shell-v2";
+const CACHE_NAME = "voice-diary-shell-v3";
 const SHELL_FILES = [
   "./",
   "index.html",
   "style.css",
-  "app.js",
+  "js/app.js",
+  "js/store.js",
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png"
@@ -30,6 +31,9 @@ self.addEventListener("fetch", (event) => {
 
   // Never cache GitHub API calls or cross-origin requests.
   if (url.origin !== self.location.origin) return;
+
+  // app-sync共有モジュールはキャッシュしない(更新が届かなくなるため)
+  if (url.pathname.includes("/app-sync/")) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
