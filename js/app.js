@@ -1,4 +1,4 @@
-import { loadEntries, saveEntries, addEntry, buildBackup } from './store.js';
+import { loadEntries, saveEntries, addEntry, buildBackup, parseBackupJson } from './store.js';
 
 const SYNC_URL = 'https://taka070600538-tech.github.io/app-sync/v1/sync.js';
 const entries = loadEntries();
@@ -246,4 +246,54 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-window.vdRenderSettingsSections = () => {};
+/* ---------- settings sections ---------- */
+let settingsRendered = false;
+window.vdRenderSettingsSections = () => {
+  if (settingsRendered) return;
+  settingsRendered = true;
+  const backupEl = $('sync-backup-section');
+  const tokenEl = $('sync-token-section');
+  import(SYNC_URL)
+    .then((sync) => {
+      sync.renderBackupControls(backupEl);
+      sync.renderTokenSettings(tokenEl);
+    })
+    .catch(() => {
+      const msg = 'GitHubバックアップ機能は現在利用できません（オフラインの可能性）。';
+      backupEl.textContent = msg;
+      tokenEl.textContent = msg;
+      settingsRendered = false; // 次に開いたとき再試行
+    });
+};
+
+/* ---------- import / export ---------- */
+const importFileInput = $('import-file');
+const importExportStatus = $('import-export-status');
+
+$('export-btn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(buildBackup(loadEntries()), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `voice-diary-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('import-btn').addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', async () => {
+  const file = importFileInput.files[0];
+  importFileInput.value = '';
+  if (!file) return;
+  const imported = parseBackupJson(await file.text());
+  if (!imported) {
+    importExportStatus.textContent = 'ファイルを読み込めませんでした';
+    return;
+  }
+  if (!confirm(`この端末の日記(${loadEntries().length}件)を、ファイルの内容(${imported.length}件)で置き換えます。よろしいですか？`)) return;
+  saveEntries(imported);
+  entries.length = 0;
+  entries.push(...imported);
+  importExportStatus.textContent = 'インポートしました';
+});

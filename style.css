@@ -358,3 +358,51 @@ a:focus-visible {
   .modal-backdrop { align-items: center; }
   .modal { border-radius: 22px; }
 }
+
+/* ---------- settings sections (app-sync標準レイアウト) ---------- */
+.settings-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--ink-faint, #b9b2a4);
+}
+.settings-section:last-child { border-bottom: none; }
+.settings-heading {
+  font-family: "Shippori Mincho", serif;
+  font-size: 1rem;
+  margin: 0 0 6px;
+}
+.settings-note {
+  font-size: 0.8rem;
+  color: #6b6455;
+  margin: 4px 0 10px;
+}
+.settings-section label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.settings-section input[type="password"] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px solid #b9b2a4;
+  border-radius: 8px;
+  font: inherit;
+  background: #fffdf8;
+}
+.settings-section button {
+  font: inherit;
+  padding: 8px 14px;
+  margin: 4px 8px 4px 0;
+  border: 1px solid #4a4437;
+  border-radius: 8px;
+  background: #fffdf8;
+  cursor: pointer;
+}
+.settings-section [role="status"], .settings-section span {
+  display: inline-block;
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
