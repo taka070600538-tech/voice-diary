@@ -30,7 +30,7 @@
 
 | | 声日記(新) | 通話録音(現行維持) |
 |---|---|---|
-| 主データの所在 | 端末のIndexedDB(テキスト) | 端末ストレージ(音声m4a) |
+| 主データの所在 | 端末のlocalStorage(テキスト) | 端末ストレージ(音声m4a) |
 | GitHubへ送るタイミング | 1日1回+今すぐ保存 | ユーザーが選んで保存した時だけ |
 | 送り方 | 全件スナップショット上書き | 1件ずつ追記(テキスト+音声) |
 | 保存先リポジトリ | app-data(非公開・共通) | call-recording-app(専用) |
@@ -45,8 +45,9 @@ call-recording-app のpullをすべて担当する。
 
 ### データ層(ローカルファースト化)
 
-- IndexedDB(DB名 `voice-diary`)に `entries` ストアを新設:
-  `{ id: <自動採番>, date: "YYYY-MM-DD", time: "HH:MM", text: <本文> }`
+- localStorage(キー `voice-diary:entries`)にエントリ配列を保存する
+  (time-diary-appの `store.js` と同じパターン。日記テキストは小容量のため十分):
+  `{ id: <UUID>, date: "YYYY-MM-DD", time: "HH:MM", text: <本文> }`
 - メイン画面の保存ボタンは「GitHubに保存する」→「日記を保存」に変更し、
   即IndexedDBへ保存する(オフラインでも記録できるようになる)。
   保存成功時のスタンプ演出は維持する
@@ -59,7 +60,7 @@ call-recording-app のpullをすべて担当する。
 - 起動時に動的importで `initDailyBackup({ appId: 'voice-diary', collect, restore })`
   を呼ぶ(失敗時はスキップ、アプリ本体は動く)
 - `collect`: `{ version: 1, exportedAt: <ISO8601>, entries: [...] }` を返す
-- `restore`: `entries` ストアを全クリアしてから書き戻す
+- `restore`: `entries` を丸ごと置き換えて書き戻す
 - `sw.js` は `sync.js` をキャッシュしない
 
 ### 設定画面(標準レイアウト)
@@ -124,12 +125,12 @@ call-recording-app のpullをすべて担当する。
 ## テスト
 
 - 声日記: `collect` → `restore` の往復で元データと一致(node:test)。
-  entriesストアのCRUDロジックのテスト
+  store.js(読み書き・追加・バックアップ検証)のテスト
 - transcribe.mjs: セクション組み立て・upsert(新規/置換/他部分不変)・
   日付選別(当日除外)のテスト(node:test)
 - 通話録音: 「空欄保存で既存値保持」のユニットテスト(JUnit)
 - 最終検証(本体が実施): 全テスト実行、実ブラウザで保存→app-dataコミット確認、
-  IndexedDB削除→復元確認、transcribe.mjs実行→01_日記の転記確認、
+  ローカルデータ削除→復元確認、transcribe.mjs実行→01_日記の転記確認、
   app-data-pull.ps1の手動実行確認。Androidアプリはビルド確認+実機確認を依頼
 
 ## やらないこと(YAGNI)
