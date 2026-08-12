@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>声日記</title>
-<meta name="description" content="話すだけで日記をGitHubに保存するPWA" />
+<meta name="description" content="話すだけで日記を記録するPWA" />
 <meta name="theme-color" content="#EDE6D6" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
@@ -61,7 +61,7 @@
 
   <button class="save-btn" id="save-btn" disabled>
     <span class="hanko" aria-hidden="true">記</span>
-    <span>GitHubに保存する</span>
+    <span>日記を保存</span>
   </button>
 </main>
 
@@ -80,38 +80,19 @@
       </button>
     </div>
 
-    <label class="field">
-      <span>Personal Access Token</span>
-      <input type="password" id="setting-token" autocomplete="off" placeholder="ghp_..." />
-      <small>この端末のブラウザ内だけに保存されます。他には送信されません。</small>
-    </label>
-
-    <label class="field">
-      <span>リポジトリ（owner/repo）</span>
-      <input type="text" id="setting-repo" autocomplete="off" placeholder="taka070600538-tech/voice-diary" />
-    </label>
-
-    <label class="field">
-      <span>ブランチ</span>
-      <input type="text" id="setting-branch" autocomplete="off" placeholder="main" />
-    </label>
-
-    <label class="field">
-      <span>保存フォルダ</span>
-      <input type="text" id="setting-folder" autocomplete="off" placeholder="diary" />
-    </label>
-
-    <button class="save-btn settings-save" id="save-settings">
-      <span>設定を保存</span>
-    </button>
-    <p class="settings-note">
-      トークンをお持ちでない場合は
-      <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">GitHubのトークン発行画面</a>
-      を開き、「repo」にチェックを入れて発行してください。
-    </p>
+    <div id="sync-backup-section" class="settings-section"></div>
+    <div id="sync-token-section" class="settings-section"></div>
+    <div class="settings-section">
+      <h3 class="settings-heading">インポート・エクスポート</h3>
+      <p class="settings-note">バックアップとは別に、日記データをファイルとして手元に保存・復元できます。</p>
+      <button type="button" id="export-btn">ファイルにエクスポート</button>
+      <button type="button" id="import-btn">ファイルからインポート</button>
+      <input type="file" id="import-file" accept="application/json" hidden />
+      <span id="import-export-status" role="status"></span>
+    </div>
   </section>
 </div>
 
-<script src="app.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

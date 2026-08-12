@@ -1,4 +1,10 @@
-"use strict";
+import { loadEntries, saveEntries, addEntry, buildBackup, parseBackupJson } from './store.js';
+
+const SYNC_URL = 'https://taka070600538-tech.github.io/app-sync/v1/sync.js';
+const entries = loadEntries();
+
+// 旧実装(GitHub直接保存)の設定キーを掃除する
+for (const k of ['vd_token', 'vd_repo', 'vd_branch', 'vd_folder']) localStorage.removeItem(k);
 
 /* ---------- element refs ---------- */
 const $ = (id) => document.getElementById(id);
@@ -15,60 +21,25 @@ const stampOverlay = $("stamp-overlay");
 const settingsBackdrop = $("settings-backdrop");
 const openSettingsBtn = $("open-settings");
 const closeSettingsBtn = $("close-settings");
-const saveSettingsBtn = $("save-settings");
-const tokenInput = $("setting-token");
-const repoInput = $("setting-repo");
-const branchInput = $("setting-branch");
-const folderInput = $("setting-folder");
 
 /* ---------- date header ---------- */
 todayLabel.textContent = new Intl.DateTimeFormat("ja-JP", {
   year: "numeric", month: "long", day: "numeric", weekday: "short"
 }).format(new Date());
 
-/* ---------- settings storage ---------- */
-const STORE_KEYS = {
-  token: "vd_token",
-  repo: "vd_repo",
-  branch: "vd_branch",
-  folder: "vd_folder"
-};
-
-function loadSettings() {
-  return {
-    token: localStorage.getItem(STORE_KEYS.token) || "",
-    repo: localStorage.getItem(STORE_KEYS.repo) || "",
-    branch: localStorage.getItem(STORE_KEYS.branch) || "main",
-    folder: localStorage.getItem(STORE_KEYS.folder) || "diary"
-  };
-}
-
 function openSettings() {
-  const s = loadSettings();
-  tokenInput.value = s.token;
-  repoInput.value = s.repo;
-  branchInput.value = s.branch;
-  folderInput.value = s.folder;
-  settingsBackdrop.classList.add("is-open");
+  settingsBackdrop.classList.add('is-open');
+  window.vdRenderSettingsSections();
 }
 
 function closeSettings() {
-  settingsBackdrop.classList.remove("is-open");
+  settingsBackdrop.classList.remove('is-open');
 }
 
 openSettingsBtn.addEventListener("click", openSettings);
 closeSettingsBtn.addEventListener("click", closeSettings);
 settingsBackdrop.addEventListener("click", (e) => {
   if (e.target === settingsBackdrop) closeSettings();
-});
-
-saveSettingsBtn.addEventListener("click", () => {
-  localStorage.setItem(STORE_KEYS.token, tokenInput.value.trim());
-  localStorage.setItem(STORE_KEYS.repo, repoInput.value.trim());
-  localStorage.setItem(STORE_KEYS.branch, branchInput.value.trim() || "main");
-  localStorage.setItem(STORE_KEYS.folder, folderInput.value.trim().replace(/^\/+|\/+$/g, "") || "diary");
-  closeSettings();
-  setStatus("設定を保存しました", "success");
 });
 
 /* ---------- status line ---------- */
@@ -238,114 +209,30 @@ function updateSaveEnabled() {
   saveBtn.disabled = transcriptEl.value.trim().length === 0;
 }
 
-/* ---------- github save ---------- */
-function pad2(n) { return String(n).padStart(2, "0"); }
-
-function todayPath(folder) {
-  const d = new Date();
-  const y = d.getFullYear(), m = pad2(d.getMonth() + 1), day = pad2(d.getDate());
-  return { path: `${folder}/${y}-${m}-${day}.md`, ymd: `${y}-${m}-${day}` };
-}
-
-function encodePath(path) {
-  return path.split("/").map(encodeURIComponent).join("/");
-}
-
-function utf8ToBase64(str) {
-  const bytes = new TextEncoder().encode(str);
-  let binary = "";
-  bytes.forEach((b) => { binary += String.fromCharCode(b); });
-  return btoa(binary);
-}
-
-function base64ToUtf8(b64) {
-  const binary = atob(b64.replace(/\n/g, ""));
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-async function githubRequest(url, token, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Accept": "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Authorization": `Bearer ${token}`,
-      ...(options.headers || {})
-    }
-  });
-  return res;
-}
-
-saveBtn.addEventListener("click", async () => {
-  const s = loadSettings();
+/* ---------- local save ---------- */
+saveBtn.addEventListener('click', () => {
   const text = transcriptEl.value.trim();
   if (!text) return;
-
-  if (!s.token || !s.repo) {
-    setStatus("先に設定でトークンとリポジトリを入力してください", "error");
-    openSettings();
-    return;
-  }
-
-  saveBtn.disabled = true;
-  setStatus("GitHubに保存しています…");
-
-  const now = new Date();
-  const hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-  const { path, ymd } = todayPath(s.folder);
-  const apiBase = `https://api.github.com/repos/${s.repo}/contents/${encodePath(path)}`;
-  const entryBlock = `## ${hhmm}\n\n${text}\n`;
-
-  try {
-    const getRes = await githubRequest(`${apiBase}?ref=${encodeURIComponent(s.branch)}`, s.token);
-
-    let sha = null;
-    let newContent;
-
-    if (getRes.status === 200) {
-      const data = await getRes.json();
-      sha = data.sha;
-      const existing = base64ToUtf8(data.content);
-      newContent = existing.replace(/\s+$/, "") + "\n\n" + entryBlock;
-    } else if (getRes.status === 404) {
-      newContent = `---\ndate: ${ymd}\n---\n\n${entryBlock}`;
-    } else if (getRes.status === 401) {
-      throw new Error("トークンが無効です。設定を確認してください。");
-    } else {
-      throw new Error(`リポジトリの確認に失敗しました（${getRes.status}）`);
-    }
-
-    const putBody = {
-      message: `diary: ${ymd} ${hhmm}`,
-      content: utf8ToBase64(newContent),
-      branch: s.branch
-    };
-    if (sha) putBody.sha = sha;
-
-    const putRes = await githubRequest(apiBase, s.token, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(putBody)
-    });
-
-    if (!putRes.ok) {
-      const err = await putRes.json().catch(() => ({}));
-      throw new Error(err.message || `保存に失敗しました（${putRes.status}）`);
-    }
-
-    transcriptEl.value = "";
-    baseText = "";
-    finalText = "";
-    currentSegment = "";
-    updateSaveEnabled();
-    showStamp();
-    setStatus("保存しました", "success");
-  } catch (err) {
-    setStatus(err.message || "保存に失敗しました。通信環境を確認してください。", "error");
-    saveBtn.disabled = text.trim().length === 0;
-  }
+  addEntry(entries, text);
+  transcriptEl.value = '';
+  baseText = '';
+  finalText = '';
+  currentSegment = '';
+  updateSaveEnabled();
+  showStamp();
+  setStatus('保存しました', 'success');
 });
+
+/* ---------- app-sync (1日1回自動バックアップ) ---------- */
+import(SYNC_URL)
+  .then((sync) => sync.initDailyBackup({
+    appId: 'voice-diary',
+    collect: async () => buildBackup(loadEntries()),
+    restore: async (data) => {
+      saveEntries(Array.isArray(data?.entries) ? data.entries : []);
+    },
+  }))
+  .catch(() => {}); // オフライン時はスキップ(アプリ本体は動く)
 
 function showStamp() {
   stampOverlay.classList.add("is-showing");
@@ -358,3 +245,55 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => { /* offline shell is best-effort */ });
   });
 }
+
+/* ---------- settings sections ---------- */
+let settingsRendered = false;
+window.vdRenderSettingsSections = () => {
+  if (settingsRendered) return;
+  settingsRendered = true;
+  const backupEl = $('sync-backup-section');
+  const tokenEl = $('sync-token-section');
+  import(SYNC_URL)
+    .then((sync) => {
+      sync.renderBackupControls(backupEl);
+      sync.renderTokenSettings(tokenEl);
+    })
+    .catch(() => {
+      const msg = 'GitHubバックアップ機能は現在利用できません（オフラインの可能性）。';
+      backupEl.textContent = msg;
+      tokenEl.textContent = msg;
+      settingsRendered = false; // 次に開いたとき再試行
+    });
+};
+
+/* ---------- import / export ---------- */
+const importFileInput = $('import-file');
+const importExportStatus = $('import-export-status');
+
+$('export-btn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(buildBackup(loadEntries()), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `voice-diary-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('import-btn').addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', async () => {
+  const file = importFileInput.files[0];
+  importFileInput.value = '';
+  if (!file) return;
+  const imported = parseBackupJson(await file.text());
+  if (!imported) {
+    importExportStatus.textContent = 'ファイルを読み込めませんでした';
+    return;
+  }
+  if (!confirm(`この端末の日記(${loadEntries().length}件)を、ファイルの内容(${imported.length}件)で置き換えます。よろしいですか？`)) return;
+  saveEntries(imported);
+  entries.length = 0;
+  entries.push(...imported);
+  importExportStatus.textContent = 'インポートしました';
+});
