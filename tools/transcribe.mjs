@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const START = '<!-- 音声日記:start -->';
 const END = '<!-- 音声日記:end -->';
 const DEFAULT_BACKUP = String.raw`D:\Obsidian Vault for Claude Code\Git\app-data\voice-diary\backup.json`;
-const DEFAULT_DIARY_DIR = String.raw`D:\Obsidian Vault for Claude Code\01_日記`;
+const DEFAULT_DIARY_DIR = String.raw`D:\Obsidian Vault for Claude Code\01_油田`;
 
 export function todayString(now = new Date()) {
   const y = now.getFullYear();
@@ -52,7 +52,7 @@ export function runTranscription({ entries, diaryDir, today }) {
   for (const date of datesToTranscribe(entries, today)) {
     const section = buildDaySection(entries, date);
     if (!section) continue;
-    const path = join(diaryDir, `${date}.md`);
+    const path = join(diaryDir, `スマホ - ${date}.md`);
     try {
       const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
       const next = upsertSection(existing, section);
