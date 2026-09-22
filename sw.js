@@ -1,4 +1,4 @@
-const CACHE_NAME = "voice-diary-shell-v3";
+const CACHE_NAME = "voice-diary-shell-v4";
 const SHELL_FILES = [
   "./",
   "index.html",
@@ -12,7 +12,11 @@ const SHELL_FILES = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES)).catch(() => {})
+    // GitHub Pagesはmax-age=600で配信するため、通常のfetchだとブラウザのHTTPキャッシュに残った
+    // 古いJSを新しいCACHE_NAMEのキャッシュに取り込んでしまう。cache:'reload'で必ずサーバーから取得する。
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL_FILES.map((url) => new Request(url, { cache: 'reload' }))))
+      .catch(() => {})
   );
   self.skipWaiting();
 });
